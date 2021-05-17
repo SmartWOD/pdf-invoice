@@ -601,7 +601,7 @@ class InvoicePrinter extends FPDF
                 $this->SetXY($x,$y);
                 $this->Cell(
                     $width_other,
-                    5,
+                    6,
                     iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper('(Netto)', self::ICONV_CHARSET_INPUT)),
                     0,
                     0,
@@ -639,7 +639,7 @@ class InvoicePrinter extends FPDF
                 $this->SetXY($x,$y);
                 $this->Cell(
                     $width_other,
-                    5,
+                    6,
                     iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper('(Netto)', self::ICONV_CHARSET_INPUT)),
                     0,
                     0,
