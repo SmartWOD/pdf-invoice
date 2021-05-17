@@ -50,6 +50,7 @@ class InvoicePrinter extends FPDF
     public $badge;
     public $addText;
     public $footernote;
+    public $footerparts;
     public $dimensions;
     public $display_tofrom = true;
     public $customHeaders = [];
@@ -64,9 +65,9 @@ class InvoicePrinter extends FPDF
         $this->firstColumnWidth = 70;
         $this->currency = $currency;
         $this->maxImageDimensions = [230, 130];
-        $this->dimensions         = [61.0, 34.0];
-        $this->from               = [''];
-        $this->to                 = [''];
+        $this->dimensions = [61.0, 34.0];
+        $this->from = [''];
+        $this->to = [''];
         $this->setLanguage($language);
         $this->setDocumentSize($size);
         $this->setColor('#222222');
@@ -255,9 +256,9 @@ class InvoicePrinter extends FPDF
         $decimalPoint = $this->referenceformat[0];
         $thousandSeparator = $this->referenceformat[1];
         $alignment = isset($this->referenceformat[2]) ? strtolower($this->referenceformat[2]) : 'left';
-        $spaceBetweenCurrencyAndAmount = isset($this->referenceformat[3]) ? (bool) $this->referenceformat[3] : true;
+        $spaceBetweenCurrencyAndAmount = isset($this->referenceformat[3]) ? (bool)$this->referenceformat[3] : true;
         $space = $spaceBetweenCurrencyAndAmount ? ' ' : '';
-        $negativeParenthesis = isset($this->referenceformat[4]) ? (bool) $this->referenceformat[4] : false;
+        $negativeParenthesis = isset($this->referenceformat[4]) ? (bool)$this->referenceformat[4] : false;
 
         $number = number_format($price, 2, $decimalPoint, $thousandSeparator);
         if ($negativeParenthesis && $price < 0) {
@@ -397,6 +398,7 @@ class InvoicePrinter extends FPDF
         $lineheight = 5;
         //Calculate position of strings
         $this->SetFont($this->font, 'B', 9);
+
         $positionX = $this->document['w'] - $this->margins['l'] - $this->margins['r']
             - max(
                 $this->GetStringWidth(mb_strtoupper($this->lang['number'], self::ICONV_CHARSET_INPUT)),
@@ -406,8 +408,7 @@ class InvoicePrinter extends FPDF
             - max(
                 $this->GetStringWidth(mb_strtoupper($this->reference, self::ICONV_CHARSET_INPUT)),
                 $this->GetStringWidth(mb_strtoupper($this->date, self::ICONV_CHARSET_INPUT))
-            );
-
+            ) - 2;
         //Number
         if (!empty($this->reference)) {
             $this->Cell($positionX, $lineheight);
@@ -820,6 +821,44 @@ class InvoicePrinter extends FPDF
 
     public function Footer()
     {
+        if (!empty($this->footerparts)) {
+            $this->SetFont($this->font, '', 8);
+            $this->SetTextColor(50, 50, 50);
+            $spaceBetween = $this->document['w'] - $this->margins['l'] - $this->margins['r'];
+            $spacePartWidth = $spaceBetween / count($this->footerparts);
+
+            for ($i = 0; $i < count($this->footerparts); $i += 1) {
+                $this->SetY(-$this->margins['t'] - 10);
+                $footerpart = $this->footerparts[$i];
+                $position = $this->margins['l'] + $spacePartWidth * $i;
+                if (is_array($footerpart)) {
+                    //var_dump($position);
+                    $maxStringWidth = 0;
+                    foreach ($footerpart as $footerPartLine) {
+                        $stringWidth = $this->GetStringWidth(mb_strtoupper($footerPartLine, self::ICONV_CHARSET_INPUT));
+                        if ($maxStringWidth < $stringWidth) {
+                            $maxStringWidth = $stringWidth;
+                        }
+                    }
+                    $spacing = ($spacePartWidth - $maxStringWidth) / 2;
+                    foreach ($footerpart as $key => $footerPartLine) {
+                        if ($key === 0) {
+                            $this->SetTextColor(50, 50, 50);
+                            $this->SetFont($this->font, 'B', 8);
+                        } else {
+                            $this->SetTextColor(50, 50, 50);
+                            $this->SetFont($this->font, '', 7);
+                        }
+                        $this->SetX($position + $spacing);
+                        $this->Cell(0, 3, $footerPartLine, 0, 1, 'L');
+                    }
+
+                    continue;
+                }
+            }
+
+            return;
+        }
         $this->SetY(-$this->margins['t']);
         $this->SetFont($this->font, '', 8);
         $this->SetTextColor(50, 50, 50);
