@@ -52,6 +52,7 @@ class InvoicePrinter extends FPDF
     public $footernote;
     public $footerparts;
     public $dimensions;
+    public $flipheader = false;
     public $display_tofrom = true;
     public $customHeaders = [];
     protected $displayToFromHeaders = true;
@@ -251,6 +252,11 @@ class InvoicePrinter extends FPDF
         $this->flipflop = true;
     }
 
+    public function flipHeader()
+    {
+        $this->flipheader = true;
+    }
+
     public function price($price)
     {
         $decimalPoint = $this->referenceformat[0];
@@ -379,18 +385,28 @@ class InvoicePrinter extends FPDF
         if (isset($this->logo) and !empty($this->logo)) {
             $this->Image(
                 $this->logo,
-                $this->margins['l'],
+                $this->flipheader ? $this->document['w'] - $this->margins['r'] - $this->dimensions[0] : $this->margins['l'],
                 $this->margins['t'],
                 $this->dimensions[0],
                 $this->dimensions[1]
             );
         }
 
+        if ($this->flipheader) {
+            $this->SetX($this->margins['l']);
+        }
         //Title
         $this->SetTextColor(0, 0, 0);
         $this->SetFont($this->font, 'B', 20);
         if (isset($this->title) and !empty($this->title)) {
-            $this->Cell(0, 5, iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($this->title, self::ICONV_CHARSET_INPUT)), 0, 1, 'R');
+            $this->Cell(0,
+                5,
+                iconv(self::ICONV_CHARSET_INPUT,
+                    self::ICONV_CHARSET_OUTPUT_A,
+                    mb_strtoupper($this->title, self::ICONV_CHARSET_INPUT)),
+                0,
+                1,
+                $this->flipheader ? 'L' : 'R');
         }
         $this->SetFont($this->font, '', 9);
         $this->Ln(5);
@@ -399,78 +415,77 @@ class InvoicePrinter extends FPDF
         //Calculate position of strings
         $this->SetFont($this->font, 'B', 9);
 
+        $maxCustomHeaderTitleWidth = 0;
+        $maxCustomHeaderContentWidth = 0;
+        if (!empty($this->customHeaders)) {
+            foreach ($this->customHeaders as $customHeader) {
+                $width = $this->GetStringWidth(mb_strtoupper($customHeader['content'], self::ICONV_CHARSET_INPUT));
+                if ($maxCustomHeaderContentWidth < $width) {
+                    $maxCustomHeaderContentWidth = $width;
+                }
+                $width = $this->GetStringWidth(mb_strtoupper($customHeader['title'], self::ICONV_CHARSET_INPUT));
+                if ($maxCustomHeaderTitleWidth < $width) {
+                    $maxCustomHeaderTitleWidth = $width + 2;
+                }
+            }
+        }
         $positionX = $this->document['w'] - $this->margins['l'] - $this->margins['r']
             - max(
                 $this->GetStringWidth(mb_strtoupper($this->lang['number'], self::ICONV_CHARSET_INPUT)),
                 $this->GetStringWidth(mb_strtoupper($this->lang['date'], self::ICONV_CHARSET_INPUT)),
-                $this->GetStringWidth(mb_strtoupper($this->lang['due'], self::ICONV_CHARSET_INPUT))
+                $this->GetStringWidth(mb_strtoupper($this->lang['due'], self::ICONV_CHARSET_INPUT)),
+                $maxCustomHeaderTitleWidth
             )
             - max(
                 $this->GetStringWidth(mb_strtoupper($this->reference, self::ICONV_CHARSET_INPUT)),
-                $this->GetStringWidth(mb_strtoupper($this->date, self::ICONV_CHARSET_INPUT))
+                $this->GetStringWidth(mb_strtoupper($this->date, self::ICONV_CHARSET_INPUT)),
+                $maxCustomHeaderContentWidth
             ) - 2;
-        //Number
-        if (!empty($this->reference)) {
-            $this->Cell($positionX, $lineheight);
-            $this->SetTextColor($this->color[0], $this->color[1], $this->color[2]);
-            $this->Cell(
-                32,
-                $lineheight,
-                iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($this->lang['number'], self::ICONV_CHARSET_INPUT) . ':'),
-                0,
-                0,
-                'L'
-            );
-            $this->SetTextColor(50, 50, 50);
-            $this->SetFont($this->font, '', 9);
-            $this->Cell(0, $lineheight, $this->reference, 0, 1, 'R');
-        }
-        //Date
-        $this->Cell($positionX, $lineheight);
-        $this->SetFont($this->font, 'B', 9);
-        $this->SetTextColor($this->color[0], $this->color[1], $this->color[2]);
-        $this->Cell(32, $lineheight, iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($this->lang['date'], self::ICONV_CHARSET_INPUT)) . ':', 0, 0, 'L');
-        $this->SetTextColor(50, 50, 50);
-        $this->SetFont($this->font, '', 9);
-        $this->Cell(0, $lineheight, $this->date, 0, 1, 'R');
 
-        //Time
-        if (!empty($this->time)) {
-            $this->Cell($positionX, $lineheight);
-            $this->SetFont($this->font, 'B', 9);
-            $this->SetTextColor($this->color[0], $this->color[1], $this->color[2]);
-            $this->Cell(
-                32,
-                $lineheight,
-                iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($this->lang['time'], self::ICONV_CHARSET_INPUT)) . ':',
-                0,
-                0,
-                'L'
-            );
-            $this->SetTextColor(50, 50, 50);
-            $this->SetFont($this->font, '', 9);
-            $this->Cell(0, $lineheight, $this->time, 0, 1, 'R');
-        }
-        //Due date
-        if (!empty($this->due)) {
-            $this->Cell($positionX, $lineheight);
-            $this->SetFont($this->font, 'B', 9);
-            $this->SetTextColor($this->color[0], $this->color[1], $this->color[2]);
-            $this->Cell(32, $lineheight, iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($this->lang['due'], self::ICONV_CHARSET_INPUT)) . ':', 0, 0, 'L');
-            $this->SetTextColor(50, 50, 50);
-            $this->SetFont($this->font, '', 9);
-            $this->Cell(0, $lineheight, $this->due, 0, 1, 'R');
-        }
-        //Custom Headers
-        if (count($this->customHeaders) > 0) {
-            foreach ($this->customHeaders as $customHeader) {
+        $headerValues = [
+            $this->lang['number'] => $this->reference,
+            $this->lang['date'] => $this->date,
+            $this->lang['time'] => $this->time,
+            $this->lang['due'] => $this->due,
+        ];
+
+        foreach ($headerValues as $title => $value) {
+            if (!empty($value)) {
+                if ($this->flipheader) {
+                    $this->SetX(0);
+                    $positionX = $this->margins['l'];
+                }
                 $this->Cell($positionX, $lineheight);
                 $this->SetFont($this->font, 'B', 9);
                 $this->SetTextColor($this->color[0], $this->color[1], $this->color[2]);
-                $this->Cell(32, $lineheight, iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($customHeader['title'], self::ICONV_CHARSET_INPUT)) . ':', 0, 0, 'L');
+                $this->Cell(
+                    $this->GetStringWidth(mb_strtoupper($title, self::ICONV_CHARSET_INPUT)) + 2,
+                    $lineheight,
+                    iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($title, self::ICONV_CHARSET_INPUT) . ':'),
+                    0,
+                    0,
+                    'L'
+                );
                 $this->SetTextColor(50, 50, 50);
                 $this->SetFont($this->font, '', 9);
-                $this->Cell(0, $lineheight, $customHeader['content'], 0, 1, 'R');
+                $this->Cell(0, $lineheight, $value, 0, 1, $this->flipheader ? 'L' : 'R');
+            }
+        }
+
+        //Custom Headers
+        if (count($this->customHeaders) > 0) {
+            foreach ($this->customHeaders as $customHeader) {
+                if ($this->flipheader) {
+                    $this->SetX(0);
+                    $positionX = $this->margins['l'];
+                }
+                $this->Cell($positionX, $lineheight);
+                $this->SetFont($this->font, 'B', 9);
+                $this->SetTextColor($this->color[0], $this->color[1], $this->color[2]);
+                $this->Cell($this->GetStringWidth(mb_strtoupper($customHeader['title'], self::ICONV_CHARSET_INPUT)) + 2, $lineheight, iconv(self::ICONV_CHARSET_INPUT, self::ICONV_CHARSET_OUTPUT_A, mb_strtoupper($customHeader['title'], self::ICONV_CHARSET_INPUT)) . ':', 0, 0, 'L');
+                $this->SetTextColor(50, 50, 50);
+                $this->SetFont($this->font, '', 9);
+                $this->Cell(0, $lineheight, $customHeader['content'], 0, 1, $this->flipheader ? 'L' : 'R');
             }
         }
 
